@@ -1102,7 +1102,7 @@ bool Estimator::failureDetection()
     delta_angle = acos(delta_Q.w()) * 2.0 / 3.14 * 180.0;
     if (delta_angle > 50)
     {
-        ROS_INFO(" big delta_angle ");
+        ROS_WARN(" big delta_angle ");
         return true;
     }
     return false;
