@@ -207,13 +207,16 @@ void vio_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)
     vio_q.x() = pose_msg->pose.pose.orientation.x;
     vio_q.y() = pose_msg->pose.pose.orientation.y;
     vio_q.z() = pose_msg->pose.pose.orientation.z;
+    // ⚠️ 调试：VIO 原始数据
+    ROS_WARN(" Original VIO pose: [%f, %f, %f]", vio_t.x(), vio_t.y(), vio_t.z());
 
     vio_t = posegraph.w_r_vio * vio_t + posegraph.w_t_vio;
     vio_q = posegraph.w_r_vio *  vio_q;
 
     vio_t = posegraph.r_drift * vio_t + posegraph.t_drift;
     vio_q = posegraph.r_drift * vio_q;
-
+    // ⚠️ 调试：变换后的 VIO 位置
+    ROS_WARN(" Transformed VIO pose: [%f, %f, %f]", vio_t.x(), vio_t.y(), vio_t.z());
     Vector3d vio_t_cam;
     Quaterniond vio_q_cam;
     vio_t_cam = vio_t + vio_q * tic;
@@ -261,8 +264,16 @@ void vio_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)
         key_odometrys.points.push_back(pose_marker);
         odometry_buf.push(vio_t);
     }
+    // ⚠️ 调试：可视化数据是否为空
+    if (key_odometrys.points.empty())
+    {
+        ROS_ERROR("❌ key_odometrys 为空！无法发布");
+    }
+    else
+    {
+        ROS_WARN("📌 key_odometrys 轨迹点数: %lu", key_odometrys.points.size());
     pub_key_odometrys.publish(key_odometrys);
-
+    }
     if (!LOOP_CLOSURE)
     {
         geometry_msgs::PoseStamped pose_stamped;
@@ -507,9 +518,9 @@ int main(int argc, char **argv)
         // std::ofstream fout(VINS_RESULT_PATH, std::ios::out);
         // fout.close();
         fsSettings.release();
-        std::ofstream foutC("/home/healer/catkin_PLVINS/src/PL-VINS/Trajactory/tum_fast_plvins_loop.txt", std::ios::out);
+        std::ofstream foutC("/home/lxk/testdata1/Trajactory/tum_fast_plvins_loop.txt", std::ios::out);
         foutC.close();
-        std::ofstream foutC1("/home/healer/catkin_PLVINS/src/PL-VINS/Trajactory/evo_fast_plvins_loop.txt", std::ios::out);
+        std::ofstream foutC1("/home/lxk/testdata1/Trajactory/evo_fast_plvins_loop.txt", std::ios::out);
         foutC1.close();     
        
 

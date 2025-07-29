@@ -119,6 +119,10 @@ void Estimator::processIMU(double dt, const Vector3d &linear_acceleration, const
 //Eigen::Matrix<double, 5, 1>
 void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<double, 5, 1>>>> &image, const map<int, vector<pair<int, Vector4d>>> &lines, const std_msgs::Header &header)
 {
+    if (lines.empty()) {
+    ROS_WARN("⚠️ Current frame has no line features.");
+    }
+
     ROS_DEBUG("new image coming ------------------------------------------");
     ROS_DEBUG("Adding feature points %lu", image.size());
     // if (f_manager.addFeatureCheckParallax(frame_count, image))           // 当视差较大时，marg 老的关键帧
@@ -192,7 +196,8 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
 
         if (failureDetection())
         {
-            ROS_WARN("failure detection!");
+            ROS_WARN("failure detection:%s %s", __FILE__, __LINE__);
+
             failure_occur = 1;
             clearState();
             setParameter();
@@ -318,7 +323,11 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
 // }
 
 void Estimator::processImage(const map<int, vector<pair<int, Vector3d>>> &image, const map<int, vector<pair<int, Vector8d>>> &lines, const std_msgs::Header &header)
-{
+{   
+    if (lines.empty()) {
+    ROS_WARN("⚠️ Current frame has no line features.");
+    }
+
 
     ROS_DEBUG("new image coming ------------------------------------------");
     ROS_DEBUG("Adding feature points %lu", image.size());
@@ -394,7 +403,7 @@ void Estimator::processImage(const map<int, vector<pair<int, Vector3d>>> &image,
 
         if (failureDetection())
         {
-            ROS_WARN("failure detection!");
+            ROS_WARN("failure detection:%s %s", __FILE__, __LINE__);
             failure_occur = 1;
             clearState();
             setParameter();
@@ -493,7 +502,7 @@ void Estimator::processImage(const map<int, vector<pair<int, Vector3d>>> &image,
 
         if (failureDetection())
         {
-            ROS_WARN("failure detection!");
+            ROS_WARN("failure detection:%s %s", __FILE__, __LINE__);
             failure_occur = 1;
             clearState();
             setParameter();
@@ -1064,17 +1073,17 @@ bool Estimator::failureDetection()
 {
     if (f_manager.last_track_num < 2)
     {
-        ROS_INFO(" little feature %d", f_manager.last_track_num);
+        ROS_WARN(" little feature %d", f_manager.last_track_num);
         return true;
     }
     if (Bas[WINDOW_SIZE].norm() > 2.5)
     {
-        ROS_INFO(" big IMU acc bias estimation %f", Bas[WINDOW_SIZE].norm());
+        ROS_WARN(" big IMU acc bias estimation %f", Bas[WINDOW_SIZE].norm());
         return true;
     }
     if (Bgs[WINDOW_SIZE].norm() > 1.0)
     {
-        ROS_INFO(" big IMU gyr bias estimation %f", Bgs[WINDOW_SIZE].norm());
+        ROS_WARN(" big IMU gyr bias estimation %f", Bgs[WINDOW_SIZE].norm());
         return true;
     }
     /*
@@ -1085,14 +1094,14 @@ bool Estimator::failureDetection()
     }
     */
     Vector3d tmp_P = Ps[WINDOW_SIZE];
-    if ((tmp_P - last_P).norm() > 5)
+    if ((tmp_P - last_P).norm() > 25)
     {
-        ROS_INFO(" big translation");
+        ROS_WARN(" big translation");
         return true;
     }
-    if (abs(tmp_P.z() - last_P.z()) > 1)
+    if (abs(tmp_P.z() - last_P.z()) > 5)
     {
-        ROS_INFO(" big z translation");
+        ROS_WARN(" big z translation");
         return true; 
     }
     Matrix3d tmp_R = Rs[WINDOW_SIZE];

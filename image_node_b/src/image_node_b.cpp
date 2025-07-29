@@ -75,7 +75,12 @@ void callback(const sensor_msgs::PointCloudConstPtr &point_feature_msg,
 
 int main(int argc, char **argv) {
 
-  m_camera = camodocal::CameraFactory::instance()->generateCameraFromYamlFile("/../../config/euroc/euroc_config_fix_extrinsic.yaml");
+  m_camera = camodocal::CameraFactory::instance()->generateCameraFromYamlFile("/root/catkin_plvins/src/PL-VINS/config/euroc/euroc_config_fix_extrinsic.yaml");
+  if(m_camera){
+    ROS_WARN("m_camera is not null");
+  }else{
+    ROS_ERROR("m_camera is null");
+  }
   K_ = m_camera->initUndistortRectifyMap(undist_map1_,undist_map2_);  
 
   ros::init(argc, argv, "sync_control_node"); 

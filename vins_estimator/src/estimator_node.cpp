@@ -17,6 +17,9 @@
 #include "camodocal/camera_models/CameraFactory.h"
 #include "camodocal/camera_models/CataCamera.h"
 #include "camodocal/camera_models/PinholeCamera.h"
+#include <fstream>
+#include <chrono>
+static std::ofstream localvio_time_file("/root/catkin_plvins/localvio_time.txt", std::ios::app);
 
 Estimator estimator;
 
@@ -350,6 +353,9 @@ void process()
             estimator.processImage(image2,lines, img_msg->header);   // 处理image数据，这时候的image已经是特征点数据，不是原始图像了。
 
             double whole_t = t_s.toc();
+            // === 写入日志，每帧一行 ===
+            if (localvio_time_file.is_open())
+                localvio_time_file << whole_t << std::endl;
             printStatistics(estimator, whole_t);
             std_msgs::Header header = img_msg->header;
             header.frame_id = "world";

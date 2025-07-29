@@ -57,9 +57,17 @@ void PoseGraph::addKeyFrame(KeyFrame* cur_kf, bool flag_detect_loop)
     }
     
     cur_kf->getVioPose(vio_P_cur, vio_R_cur);
+    // ⚠️ 调试：确保 VIO 里程计数据正确
+    ROS_WARN(" Adding KeyFrame: ID = %d, vio_P_cur = [%f, %f, %f]",
+        cur_kf->index, vio_P_cur.x(), vio_P_cur.y(), vio_P_cur.z());
     vio_P_cur = w_r_vio * vio_P_cur + w_t_vio;
     vio_R_cur = w_r_vio *  vio_R_cur;
     cur_kf->updateVioPose(vio_P_cur, vio_R_cur);
+
+    // ⚠️ 调试：确保 `w_t_vio` 正确
+    ROS_WARN(" After transformation: w_t_vio = [%f, %f, %f], vio_P_cur = [%f, %f, %f]",
+        w_t_vio.x(), w_t_vio.y(), w_t_vio.z(),
+        vio_P_cur.x(), vio_P_cur.y(), vio_P_cur.z());
     cur_kf->index = global_index;
     global_index++;
 	int loop_index = -1;
@@ -164,7 +172,7 @@ void PoseGraph::addKeyFrame(KeyFrame* cur_kf, bool flag_detect_loop)
         //       << Q.z() << ","
         //       << endl;
         // loop_path_file.close();
-        ofstream foutC("/home/healer/catkin_PLVINS/src/PL-VINS/Trajactory/tum_fast_plvins_loop.txt", ios::app);
+        ofstream foutC("/home/lxk/testdata1/Trajactory/tum_fast_plvins_loop.txt", ios::app);
         foutC.setf(ios::fixed, ios::floatfield);
         foutC.precision(0);
         foutC << cur_kf->time_stamp * 1e9<< " ";
@@ -179,7 +187,7 @@ void PoseGraph::addKeyFrame(KeyFrame* cur_kf, bool flag_detect_loop)
               << endl;
         foutC.close();
 
-        ofstream foutC1("/home/healer/catkin_PLVINS/src/PL-VINS/Trajactory/evo_fast_plvins_loop.txt", ios::app);
+        ofstream foutC1("/home/lxk/testdata1/Trajactory/evo_fast_plvins_loop.txt", ios::app);
         foutC1.setf(ios::fixed, ios::floatfield);
         foutC1.precision(9);
         foutC1 << cur_kf->time_stamp << " ";
@@ -237,6 +245,9 @@ void PoseGraph::addKeyFrame(KeyFrame* cur_kf, bool flag_detect_loop)
 	keyframelist.push_back(cur_kf);
     publish();
 	m_keyframelist.unlock();
+    // ⚠️ 关键调试：确保 KeyFrame 被成功添加
+    ROS_WARN("✅ KeyFrame %d added successfully!", cur_kf->index);
+
 }
 
 

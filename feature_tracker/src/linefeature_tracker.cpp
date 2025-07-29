@@ -1,4 +1,10 @@
 #include "linefeature_tracker.h"
+#include <fstream>
+#include <image_transport/image_transport.h>
+#include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/image_encodings.h>
+
+
 // #include "line_descriptor/src/precomp_custom.hpp"
 
 LineFeatureTracker::LineFeatureTracker()
@@ -410,12 +416,80 @@ vector< int >  last_unsuccess_id;
 Mat last_unsuccess_lbd_descr;
 void LineFeatureTracker::readImage(const cv::Mat &_img)
 {
+
+
+    static ros::NodeHandle nh;
+    static std::shared_ptr<image_transport::ImageTransport> it = std::make_shared<image_transport::ImageTransport>(nh);
+    static image_transport::Publisher pub_lineimage = it->advertise("/linefeature_tracker/linefeature_img", 1);
+
     cv::Mat img;
     TicToc t_p;
     frame_cnt++;
 
     cv::remap(_img, img, undist_map1_, undist_map2_, CV_INTER_LINEAR);
+    
+    // 0. 先整体压暗一倍
+    img = 0.6 * img;
+    // 1. gamma 变换（非线性暗化）
+    cv::Mat img_float;
+    img.convertTo(img_float, CV_32F, 1.0 / 255.0);
+    float gamma = 2.2;  // gamma > 1 是变暗，模拟低光
+    cv::pow(img_float, gamma, img_float);
+    img_float.convertTo(img, CV_8U, 255.0);
 
+    // // 2. 高斯模糊（保持）
+    // cv::GaussianBlur(img, img, cv::Size(5, 5), 2.0);
+
+    // // 3. 添加轻微噪声（标准差从 15 降到 5）
+    // cv::Mat noise(img.size(), img.type());
+    // cv::randn(noise, 0, 8);  // 噪点更轻柔
+    // img += noise;
+
+    // 4. 模拟帧间亮度波动（整体明暗反复）
+    static int light_step = 0;
+    float alpha = 1.0 + 0.1 * std::sin(light_step * 0.1);
+    float beta  = -15 * std::cos(light_step * 0.1);
+    img.convertTo(img, -1, alpha, beta);
+    light_step++;
+
+    // // 1. gamma 变换（非线性暗化）
+    // cv::Mat img_float;
+    // img.convertTo(img_float, CV_32F, 1.0 / 255.0);
+    // float gamma = 2.2;  // gamma > 1 是变暗，<1 是变亮
+    // cv::pow(img_float, gamma, img_float);
+    // img_float.convertTo(img, CV_8U, 255.0);
+
+    // // 2. 高斯模糊
+    // cv::GaussianBlur(img, img, cv::Size(5, 5), 2.0);  // 模拟模糊
+
+    // // 3. 增加噪声（高斯噪声）
+    // cv::Mat noise(img.size(), img.type());
+    // cv::randn(noise, 0, 15);  // 均值0，标准差15
+    // img += noise;
+
+
+    //     // 暗化整张图像（gamma）
+    // cv::Mat img_float;
+    // img.convertTo(img_float, CV_32F, 1.0 / 255.0);
+    // cv::pow(img_float, 2.0, img_float);  // gamma = 2.0
+    // img_float.convertTo(img, CV_8U, 255.0);
+
+    // // 创建一个亮度 mask，模拟强光区域
+    // cv::Mat light_mask = cv::Mat::zeros(img.size(), CV_8U);
+
+    // // 随机创建几个亮块（圆形强光区）
+    // for (int i = 0; i < 3; ++i) {
+    //     cv::Point center(rand() % img.cols, rand() % img.rows);
+    //     int radius = rand() % 50 + 30;  // 半径 30-80
+    //     cv::circle(light_mask, center, radius, cv::Scalar(255), -1);
+    // }
+
+    // // 将亮块融合到图像上（类似光斑）
+    // cv::Mat brightened;
+    // img.copyTo(brightened);
+    // brightened.setTo(255, light_mask);  // 将亮区设为白色
+
+    // cv::addWeighted(img, 0.8, brightened, 0.2, 0, img);  // 融合，让亮区更亮
 
 
 //    cv::imshow("lineimg",img);
@@ -501,8 +575,66 @@ void LineFeatureTracker::readImage(const cv::Mat &_img)
     sum_time += keylsd.size() * t_lbd.toc() / lsd.size();
 ///////////////
 
+
     forwframe_->keylsd = keylsd;
     forwframe_->lbd_descr = keylbd_descr;
+
+
+
+    cv::Mat img_with_lines;
+    if (img.channels() == 1)
+        cv::cvtColor(img, img_with_lines, cv::COLOR_GRAY2BGR);
+    else
+        img_with_lines = img.clone();  // 已经是彩色图
+
+    cv::RNG rng(12345);  // 随机数生成器，确保颜色稳定
+
+    for (const auto &kl : forwframe_->keylsd) {
+        cv::Point2f start(kl.getStartPoint());
+        cv::Point2f end(kl.getEndPoint());
+
+        cv::Scalar color(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
+        cv::line(img_with_lines, start, end, color, 2);
+    }
+
+    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img_with_lines).toImageMsg();
+    msg->header.stamp = ros::Time::now();  // 添加时间戳用于 RViz
+    pub_lineimage.publish(msg);
+
+
+
+
+    cv::Mat color_img;
+    if (img.channels() == 1)
+        cv::cvtColor(img, color_img, cv::COLOR_GRAY2BGR);
+    else
+        color_img = img.clone();
+
+    for (const auto& line : keylsd) {
+        cv::Point2f pt1 = line.getStartPoint();
+        cv::Point2f pt2 = line.getEndPoint();
+        cv::Scalar color(rng.uniform(0,255), rng.uniform(0,255), rng.uniform(0,255));
+        cv::line(color_img, pt1, pt2, color, 2);
+    }
+
+    std::string out_dir = "/home/lxk/testdata1/MH_05_difficult/mav0/cam0/debug_images/";
+    system(("mkdir -p " + out_dir).c_str());
+    std::string out_path = out_dir + std::to_string(ros::Time::now().toNSec()) + "_lsd_filtered.png";
+    // cv::imwrite(out_path, color_img);
+    // ROS_INFO("✅ 已保存 LSD 过滤后线段图像: %s", out_path.c_str());
+
+
+    // 保存 keylsd 数量到文本文件中
+    static int save_frame_idx = 1;  // 帧编号，从1开始
+    std::string save_path = "/home/lxk/testdata1/linecount/linecount.txt";
+    std::ofstream ofs(save_path, std::ios::app);  // 以追加方式写入
+    if (ofs.is_open()) {
+        ofs << "Frame " << save_frame_idx++ << ": " << keylsd.size() << " lines" << std::endl;
+        ofs.close();
+    } else {
+        ROS_WARN("❌ 无法打开 linecount.txt 文件进行写入！");
+    }
+
 
     for (size_t i = 0; i < forwframe_->keylsd.size(); ++i) {
         if(first_img)

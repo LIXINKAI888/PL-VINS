@@ -6,6 +6,10 @@
 #include <cv_bridge/cv_bridge.h>
 #include <message_filters/subscriber.h>
 
+#include <fstream>
+#include <chrono>
+
+
 #include "linefeature_tracker.h"
 
 // #include "feature_tracker.h"
@@ -57,7 +61,17 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
 //    cv::waitKey(1);
     
     frame_cnt++;
-    trackerData.readImage(ptr->image.rowRange(0 , ROW));   // rowRange(i,j) 取图像的i～j行
+    static std::ofstream time_log_file("/root/catkin_plvins/module_time.txt", std::ios::app);
+
+    auto t1 = std::chrono::steady_clock::now();
+    trackerData.readImage(ptr->image.rowRange(0, ROW));
+    auto t2 = std::chrono::steady_clock::now();
+    double duration_ms = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() / 1000.0;
+
+    // 直接追加一行耗时
+    if (time_log_file.is_open()) {
+        time_log_file << duration_ms << std::endl;
+    }
 
         pub_count++;
         sensor_msgs::PointCloudPtr feature_lines(new sensor_msgs::PointCloud);
